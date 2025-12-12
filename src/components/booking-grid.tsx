@@ -30,6 +30,13 @@ const isSameDay = (date1: Date, date2: Date) => {
          date1.getDate() === date2.getDate();
 };
 
+const formatWeekdayAndDay = (date: Date) => {
+  const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const day = date.toLocaleDateString('pt-BR', { day: 'numeric' });
+  const formattedWeekday = weekday.split('-')[0];
+  return `${formattedWeekday.charAt(0).toUpperCase() + formattedWeekday.slice(1)} ${day}`;
+};
+
 export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [users, setUsers] = useState<Record<string, { name: string; email: string; }>>({});
@@ -155,6 +162,7 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
     return visibleBookings.find(b => 
       b.roomId === roomId &&
       b.date && 
+      typeof b.date.toDate === 'function' &&
       isSameDay(b.date.toDate(), date) &&
       b.timeSlot === timeSlot
     );
@@ -201,7 +209,7 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
                     </div>
                     <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        {booking.date ? (
+                        {booking.date && typeof booking.date.toDate === 'function' ? (
                           <span>{booking.date.toDate().toLocaleDateString('pt-BR')}, {booking.timeSlot}</span>
                         ) : (
                           <span>Data inválida</span>
@@ -323,7 +331,7 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
                                           <TableHead className="w-[120px] sm:w-[150px] text-xs sm:text-sm">Horário</TableHead>
                                           {weekDays.map((day, index) => (
                                             <TableHead key={day.toISOString()} className={cn('border-l min-w-[120px] text-xs sm:text-sm', index % 2 !== 0 && 'bg-primary/5')}>
-                                              {day.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' })}
+                                              {formatWeekdayAndDay(day)}
                                             </TableHead>
                                           ))}
                                         </TableRow>
