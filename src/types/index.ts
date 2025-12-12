@@ -8,7 +8,7 @@ export interface Booking {
   spaceId: string;
   userId: string;
   reason: string;
-  day: 'Segunda' | 'Terça' | 'Quarta' | 'Quinta' | 'Sexta';
+  date: Timestamp;
   timeSlot: string;
   status: BookingStatus;
   createdAt: Timestamp;

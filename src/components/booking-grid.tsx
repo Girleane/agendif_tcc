@@ -8,16 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Booking, Space, User } from '@/types';
-import { timeSlots, daysOfWeek } from '@/lib/data';
+import { timeSlots } from '@/lib/data';
 import { BookingDialog } from './booking-dialog';
-import { Building2, DoorOpen, PlusCircle, Trash2, Loader2, User as UserIcon, Mail, BookOpen, Calendar, Clock, Search } from 'lucide-react';
+import { Building2, DoorOpen, PlusCircle, Loader2, User as UserIcon, Mail, BookOpen, Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, query, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Input } from './ui/input';
 
 interface BookingGridProps {
   bookings: Booking[];
@@ -25,12 +24,19 @@ interface BookingGridProps {
   searchTerm: string;
 }
 
+const isSameDay = (date1: Date, date2: Date) => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+};
+
 export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [users, setUsers] = useState<Record<string, { name: string; email: string; }>>({});
-  const [selectedSlot, setSelectedSlot] = useState<{ space: Space; room: Space['rooms'][0]; day: string; timeSlot: string } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ space: Space; room: Space['rooms'][0]; date: Date; timeSlot: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -72,36 +78,37 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
   }, [spaces, searchTerm]);
 
   const visibleBookings = useMemo(() => {
-    // Filtra as reservas para não mostrar as rejeitadas na grade
     return bookings.filter(b => b.status !== 'rejected');
   }, [bookings]);
 
-  const handleSlotClick = (space: Space, room: Space['rooms'][0], day: string, timeSlot: string) => {
-    setSelectedSlot({ space, room, day, timeSlot });
+  const handleSlotClick = (space: Space, room: Space['rooms'][0], date: Date, timeSlot: string) => {
+    setSelectedSlot({ space, room, date, timeSlot });
   };
 
   const handleBookingSubmit = async (reason: string) => {
     if (!selectedSlot || !user) return;
-
+  
+    const bookingDate = Timestamp.fromDate(selectedSlot.date);
+  
     const newBooking = {
       spaceId: selectedSlot.space.id,
       roomId: selectedSlot.room.id,
       userId: user.id,
       reason,
-      day: selectedSlot.day as any,
+      date: bookingDate,
       timeSlot: selectedSlot.timeSlot,
-      status: 'pending',
+      status: 'pending' as const,
       createdAt: serverTimestamp(),
     };
-    
+      
     addDoc(collection(db, 'bookings'), newBooking);
-    
+      
     setSelectedSlot(null); 
-    
+      
     toast({
-      title: 'Solicitação Enviada!',
-      description: 'Sua reserva para a sala foi enviada para aprovação.',
-      variant: 'default',
+        title: 'Solicitação Enviada!',
+        description: 'Sua reserva para a sala foi enviada para aprovação.',
+        variant: 'default',
     });
   };
 
@@ -144,9 +151,12 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
     }
   };
 
-  const getBookingForSlot = (roomId: string, day: string, timeSlot: string) => {
-    // Usa as reservas filtradas para popular a grade
-    return visibleBookings.find(b => b.roomId === roomId && b.day === day && b.timeSlot === timeSlot);
+  const getBookingForSlot = (roomId: string, date: Date, timeSlot: string) => {
+    return visibleBookings.find(b => 
+      b.roomId === roomId && 
+      isSameDay(b.date.toDate(), date) &&
+      b.timeSlot === timeSlot
+    );
   };
 
   const getStatusBadge = (status: Booking['status']) => {
@@ -190,7 +200,7 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
                     </div>
                     <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        <span>{booking.day}, {booking.timeSlot}</span>
+                        <span>{booking.date.toDate().toLocaleDateString('pt-BR')}, {booking.timeSlot}</span>
                     </div>
                 </div>
                 <div className="flex gap-2">
@@ -219,24 +229,25 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
     )
   }
 
-  const getWeekDisplay = () => {
+  const getWeekInfo = (offset: number) => {
     const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-
-    // Ajusta para a segunda-feira da semana atual
+    today.setDate(today.getDate() + offset * 7);
+    const dayOfWeek = today.getDay(); 
+  
     const monday = new Date(today);
     const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     monday.setDate(today.getDate() + diffToMonday);
-
-    // Ajusta para a sexta-feira da semana atual
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-
+  
+    const weekDays = Array.from({ length: 5 }).map((_, i) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + i);
+      return day;
+    });
+  
     const formatOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long' };
     const formatter = new Intl.DateTimeFormat('pt-BR', formatOptions);
-
+  
     const capitalizeMonth = (dateString: string) => {
-      // Ex: "25 de novembro" -> "25 de Novembro"
       const parts = dateString.split(' de ');
       if (parts.length === 2) {
         const month = parts[1];
@@ -244,9 +255,17 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
       }
       return dateString;
     };
-
-    return `${capitalizeMonth(formatter.format(monday))} - ${capitalizeMonth(formatter.format(friday))}`;
+  
+    const firstDay = weekDays[0];
+    const lastDay = weekDays[4];
+  
+    return {
+      weekDays,
+      display: `${capitalizeMonth(formatter.format(firstDay))} - ${capitalizeMonth(formatter.format(lastDay))}`,
+    };
   };
+
+  const { weekDays, display: weekDisplay } = getWeekInfo(weekOffset);
 
   if (filteredSpaces.length === 0) {
     return (
@@ -282,29 +301,39 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
                             <AccordionContent className="bg-background p-0">
                                 <hr />
                                 <div className="px-4 sm:px-6 pt-4">
-                                    <div className="flex justify-start items-center gap-4 text-base pb-4 text-green-700">
-                                        <p>{getWeekDisplay()}</p>
-                                    </div>
+                                  <div className="flex justify-start items-center gap-4 text-base pb-4 text-green-700">
+                                    <Button variant="ghost" size="icon" onClick={() => setWeekOffset(weekOffset - 1)}>
+                                      <ChevronLeft className="h-6 w-6" />
+                                    </Button>
+                                    <p className="w-64 text-center">{weekDisplay}</p>
+                                    <Button variant="ghost" size="icon" onClick={() => setWeekOffset(weekOffset + 1)}>
+                                      <ChevronRight className="h-6 w-6" />
+                                    </Button>
+                                  </div>
                                 </div>
                                 <div className="overflow-x-auto px-2 sm:px-4 pb-2 sm:pb-4">
                                     <Table className="border rounded-lg">
                                       <TableHeader>
                                         <TableRow>
                                           <TableHead className="w-[120px] sm:w-[150px] text-xs sm:text-sm">Horário</TableHead>
-                                          {daysOfWeek.map((day, index) => <TableHead key={day} className={cn('border-l min-w-[120px] text-xs sm:text-sm', index % 2 !== 0 && 'bg-primary/5')}>{day}</TableHead>)}
+                                          {weekDays.map((day, index) => (
+                                            <TableHead key={day.toISOString()} className={cn('border-l min-w-[120px] text-xs sm:text-sm', index % 2 !== 0 && 'bg-primary/5')}>
+                                              {day.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' })}
+                                            </TableHead>
+                                          ))}
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
                                         {timeSlots.map(timeSlot => (
                                           <TableRow key={timeSlot}>
                                             <TableCell className="font-medium text-xs sm:text-sm">{timeSlot}</TableCell>
-                                            {daysOfWeek.map((day, index) => {
+                                            {weekDays.map((day, index) => {
                                               const booking = getBookingForSlot(room.id, day, timeSlot);
                                               const isAdmin = user?.role === 'admin';
                                               const isOwner = user?.id === booking?.userId;
 
                                               return (
-                                                <TableCell key={`${day}-${timeSlot}`} className={cn('border-l p-1 sm:p-2', index % 2 !== 0 && 'bg-primary/5')}>
+                                                <TableCell key={day.toISOString()} className={cn('border-l p-1 sm:p-2', index % 2 !== 0 && 'bg-primary/5')}>
                                                   {booking ? (
                                                     isAdmin ? (
                                                         <Popover>
@@ -359,7 +388,7 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
         isOpen={!!selectedSlot}
         onClose={() => setSelectedSlot(null)}
         onSubmit={handleBookingSubmit}
-        details={selectedSlot ? `${selectedSlot.room.name} (${selectedSlot.space.name}) - ${selectedSlot.day} ${selectedSlot.timeSlot}` : ''}
+        details={selectedSlot ? `${selectedSlot.room.name} (${selectedSlot.space.name}) - ${selectedSlot.date.toLocaleDateString('pt-BR')} ${selectedSlot.timeSlot}` : ''}
       />
     </>
   );
