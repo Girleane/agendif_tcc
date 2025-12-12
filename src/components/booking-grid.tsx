@@ -153,7 +153,8 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
 
   const getBookingForSlot = (roomId: string, date: Date, timeSlot: string) => {
     return visibleBookings.find(b => 
-      b.roomId === roomId && 
+      b.roomId === roomId &&
+      b.date && 
       isSameDay(b.date.toDate(), date) &&
       b.timeSlot === timeSlot
     );
@@ -200,7 +201,11 @@ export default function BookingGrid({ bookings, searchTerm }: BookingGridProps) 
                     </div>
                     <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        <span>{booking.date.toDate().toLocaleDateString('pt-BR')}, {booking.timeSlot}</span>
+                        {booking.date ? (
+                          <span>{booking.date.toDate().toLocaleDateString('pt-BR')}, {booking.timeSlot}</span>
+                        ) : (
+                          <span>Data inválida</span>
+                        )}
                     </div>
                 </div>
                 <div className="flex gap-2">
