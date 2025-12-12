@@ -18,10 +18,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'O nome deve ter pelo menos 2 caracteres.' }),
   email: z.string()
-    .email({ message: 'Por favor, insira um e-mail válido.' })
-    .refine(email => email.endsWith('@ifce.edu.br'), {
-        message: 'Apenas e-mails com o domínio @ifce.edu.br são permitidos.'
-    }),
+    .email({ message: 'Por favor, insira um e-mail válido.' }),
   password: z.string().min(6, { message: 'A senha deve ter pelo menos 6 caracteres.' }),
 });
 
@@ -110,9 +107,9 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>E-mail Institucional</FormLabel>
+              <FormLabel>E-mail</FormLabel>
               <FormControl>
-                <Input placeholder="seu.email@ifce.edu.br" {...field} />
+                <Input placeholder="seu.email@exemplo.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
