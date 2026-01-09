@@ -116,7 +116,7 @@ export default function RequestsManagement({ bookings }: RequestsManagementProps
                                         <div className="font-medium">{booking.roomName}</div>
                                         <div className="text-xs text-muted-foreground">{booking.spaceName}</div>
                                     </TableCell>
-                                    <TableCell>{booking.day}, {booking.timeSlot}</TableCell>
+                                    <TableCell>{(booking.date && typeof booking.date.toDate === 'function') ? booking.date.toDate().toLocaleDateString('pt-BR') : (booking.day || 'Data inválida')}, {booking.timeSlot}</TableCell>
                                     <TableCell>{booking.reason}</TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>

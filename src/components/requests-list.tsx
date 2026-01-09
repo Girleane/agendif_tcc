@@ -140,7 +140,7 @@ export default function RequestsList() {
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <p className="flex items-center gap-2"><Building2 className="h-4 w-4"/> {booking.spaceName}</p>
                     <p className="flex items-center gap-2"><DoorOpen className="h-4 w-4"/> {booking.roomName}</p>
-                    <p className="flex items-center gap-2"><Calendar className="h-4 w-4"/> {booking.day}</p>
+                    <p className="flex items-center gap-2"><Calendar className="h-4 w-4"/> {(booking.date && typeof booking.date.toDate === 'function') ? booking.date.toDate().toLocaleDateString('pt-BR') : (booking.day || 'Data inválida')}</p>
                     <p className="flex items-center gap-2"><Clock className="h-4 w-4"/> {booking.timeSlot}</p>
                   </div>
                   <div className="mt-4 flex justify-between items-center">
